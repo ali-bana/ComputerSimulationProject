@@ -26,7 +26,7 @@ class Task:
     def __repr__(self):
         return '|task: ' + str(self.type) + ', arr_time: ' + str(self.arrival_time) + ', deadline: ' +str(self.deadline) + "|"
 
-
+number_of_departed_tasks = 0
 def task_compare(o1, o2):
     """
 used to sort the tasks
@@ -104,15 +104,25 @@ used to remove a task when it's deadline has come
     :param scheduler_Q: th Q the scheduler
     :param task_id: the id of the task
     """
+    global number_of_deadlined_tasks,number_of_deadlined_tasks_class1,number_of_deadlined_tasks_class2
+    type = 0
     for i in range(len(scheduler_Q)):
         if str(id(scheduler_Q[i])) == task_id:
+            type = scheduler_Q[i].type
             del scheduler_Q[i]
             return
     for j in range(len(server_Q)):
         for i in range(len(server_Q[j])):
             if str(id(server_Q[j][i])) == task_id:
+                type = server_Q[j][i].type
                 del server_Q[j][i]
                 return
+    if number_of_departed_tasks > 5000 :
+        number_of_deadlined_tasks += 1
+        if(type == 1):
+            number_of_deadlined_tasks_class1 += 1
+        else:
+            number_of_deadlined_tasks_class2 += 1
 
 def schedule(sch_Q, server_Q, cores, cores_lambda, fel, time):
     """
@@ -158,23 +168,24 @@ cores, then starts a task if Q is not empty and there exists an empty core
             cores[server][core] = task
             service_time = exponentialGenerator(cores_lambda[server][core])
             fel.append(Event('dep', time+service_time, str(server) + ' ' + str(core)))  # add departure event to FEL
-            time_in_q = time - task.arrival_time
-            sum_of_time_spent_in_the_q += time_in_q
-            sum_of_time_spent_in_the_q_power_of_2 += time_in_q ** 2
-            n_task_q += 1
-            if task.type == 1:
-                sum_of_time_spent_in_the_q_class1 += time_in_q
-                sum_of_time_spent_in_the_q_power_of_2_class1 += time_in_q ** 2
-                n_task1_q += 1
-            else:
-                sum_of_time_spent_in_the_q_class2 += time_in_q
-                sum_of_time_spent_in_the_q_power_of_2_class2 += time_in_q ** 2
-                n_task2_q += 1
+            if(number_of_departed_tasks > 5000):
+               time_in_q = time - task.arrival_time
+               sum_of_time_spent_in_the_q += time_in_q
+               sum_of_time_spent_in_the_q_power_of_2 += time_in_q ** 2
+               n_task_q += 1
+               if task.type == 1:
+                   sum_of_time_spent_in_the_q_class1 += time_in_q
+                   sum_of_time_spent_in_the_q_power_of_2_class1 += time_in_q ** 2
+                   n_task1_q += 1
+               else:
+                   sum_of_time_spent_in_the_q_class2 += time_in_q
+                   sum_of_time_spent_in_the_q_power_of_2_class2 += time_in_q ** 2
+                   n_task2_q += 1
 
 
             return
 
-def departure(dep, server_Q, cores, cores_lambda, time, fel, arrivals):
+def departure(dep, server_Q, cores, cores_lambda, time, fel):
     """
 when departure event call this function. it frees the core and call start_task
     :param arrivals: number of arrivals to start sampling after warm up
@@ -185,26 +196,28 @@ when departure event call this function. it frees the core and call start_task
     :param time: time of the system
     :param fel: future event list of system
     """
+    global number_of_departed_tasks
     global n_task,n_task1,n_task2,sum_of_time_spent_in_the_system,sum_of_time_spent_in_the_system_class1,sum_of_time_spent_in_the_system_class2,sum_of_time_spent_in_the_system_power_of_2,sum_of_time_spent_in_the_system_power_of_2_class1,sum_of_time_spent_in_the_system_power_of_2_class2
     server = int(dep.split()[0])
     core = int(dep.split()[1])
-    time_spent = time - cores[server][core].arrival_time
-    sum_of_time_spent_in_the_system += time_spent
-    n_task += 1
-    sum_of_time_spent_in_the_system_power_of_2 += time_spent ** 2
-    if cores[server][core]. type == 1 :
-        sum_of_time_spent_in_the_system_class1 += time_spent
-        sum_of_time_spent_in_the_system_power_of_2_class1 += time_spent ** 2
-        n_task1 += 1
-    else:
-        sum_of_time_spent_in_the_system_class2 += time_spent
-        sum_of_time_spent_in_the_system_power_of_2_class2 += time_spent ** 2
-        n_task2 += 1
-
+    if(number_of_departed_tasks > 5000):
+        time_spent = time - cores[server][core].arrival_time
+        sum_of_time_spent_in_the_system += time_spent
+        n_task += 1
+        sum_of_time_spent_in_the_system_power_of_2 += time_spent ** 2
+        if cores[server][core].type == 1:
+            sum_of_time_spent_in_the_system_class1 += time_spent
+            sum_of_time_spent_in_the_system_power_of_2_class1 += time_spent ** 2
+            n_task1 += 1
+        else:
+            sum_of_time_spent_in_the_system_class2 += time_spent
+            sum_of_time_spent_in_the_system_power_of_2_class2 += time_spent ** 2
+            n_task2 += 1
+    number_of_departed_tasks += 1
     cores[server][core] = -1
     start_task(server_Q, cores, cores_lambda, server, fel, time)
 
-
+time = 0
 def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
     """
     :param ser_num: total number of servers
@@ -213,30 +226,35 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
     :param sc_r: scheduler rate
     :param cores: 2D array of cores. Each row is the set of all cores of a server
     """
+    global time
     global sum_of_the_length_of_the_sch_q,sum_of_the_length_of_the_sch_q_power_of_2,sum_of_the_length_of_the_server_qs,sum_of_the_length_of_the_server_qs_power_of_2
     global n_task_q, n_task1_q, n_task2_q, sum_of_time_spent_in_the_q, sum_of_time_spent_in_the_q_class1, sum_of_time_spent_in_the_q_class2, sum_of_time_spent_in_the_q_power_of_2, sum_of_time_spent_in_the_q_power_of_2_class1, sum_of_time_spent_in_the_q_power_of_2_class2
     global n_task, n_task1, n_task2, sum_of_time_spent_in_the_system, sum_of_time_spent_in_the_system_class1, sum_of_time_spent_in_the_system_class2, sum_of_time_spent_in_the_system_power_of_2, sum_of_time_spent_in_the_system_power_of_2_class1, sum_of_time_spent_in_the_system_power_of_2_class2
     fel = []  # the future event list
     server_Q = [[] for _ in range(server_num)]  # 2D array. each row is Q for one server
     schdle_Q = []  # Q of the scheduler
-    time = 0  # time of the system
+  # time of the system
     cores = [[-1 for j in range(len(cores_lambda[i]))] for i in range(len(cores_lambda))]
     # makes a 2D array for cores, tasks place in cores, -1 indicates empty state
     # fel.append(Event('END', 50000, ''))
     fel.append(Event('arrival', next_task_time(time, arrival_l), ''))
     fel.append(Event('sc_s', exponentialGenerator(sc_r) + time, ''))  # the time scheduler works
-    sum_of_the_length_of_the_sch_q += len(schdle_Q)
-    sum_of_the_length_of_the_sch_q_power_of_2 += len(schdle_Q) ** 2
     arrivals = 0
-    for i in range(len(server_Q)):
-        sum_of_the_length_of_the_server_qs[i] += len(server_Q[i])
-        sum_of_the_length_of_the_server_qs_power_of_2[i] += len(server_Q[i]) ** 2
+
 
 
     while (True):
         fel.sort(key=lambda x: x.time)
         e = fel.pop(0)  # pop the first event in the list
         time = e.time
+        if(number_of_departed_tasks > 5000):
+            sum_of_the_length_of_the_sch_q += len(schdle_Q)
+            sum_of_the_length_of_the_sch_q_power_of_2 += len(schdle_Q) ** 2
+            for i in range(len(server_Q)):
+                sum_of_the_length_of_the_server_qs[i] += len(server_Q[i])
+                sum_of_the_length_of_the_server_qs_power_of_2[i] += len(server_Q[i]) ** 2
+
+
 
         print('........................')
         print(e.kind, e.description)
@@ -263,7 +281,7 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
             pass
         elif e.kind == 'dep':
             # a task is done
-            departure(e.description, server_Q, cores, cores_lambda, time, fel, arrivals)
+            departure(e.description, server_Q, cores, cores_lambda, time, fel)
 
             pass
         elif e.kind == 'deadline':
@@ -273,19 +291,27 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
         elif e.kind == 'END':
             # this is the end of simualtion
             return
-        a1 = accuracy_check(sum_of_time_spent_in_the_system,sum_of_time_spent_in_the_system_power_of_2,n_task)
-        a2 = accuracy_check(sum_of_time_spent_in_the_system_class1,sum_of_time_spent_in_the_system_power_of_2_class1,n_task1)
-        a3 = accuracy_check(sum_of_time_spent_in_the_system_class2, sum_of_time_spent_in_the_system_power_of_2_class2,n_task2)
-        a4 = accuracy_check(sum_of_time_spent_in_the_q, sum_of_time_spent_in_the_q_power_of_2, n_task_q)
-        a5 = accuracy_check(sum_of_time_spent_in_the_q_class1, sum_of_time_spent_in_the_q_power_of_2_class1,n_task1_q)
-        a6 = accuracy_check(sum_of_time_spent_in_the_q_class2, sum_of_time_spent_in_the_q_power_of_2_class2,n_task2_q)
-        a7 = accuracy_check(sum_of_the_length_of_the_sch_q,sum_of_the_length_of_the_sch_q_power_of_2,time)
-        if a1 == True or a2 == True or a3 == True or a4 == True or a5 == True or a6 == True or a7 == True:
+        elif number_of_departed_tasks > 50000000:
             return
-        for i in range(len(sum_of_the_length_of_the_server_qs)):
-            a = accuracy_check(sum_of_the_length_of_the_server_qs[i],sum_of_the_length_of_the_server_qs_power_of_2[i],time)
-            if a == True:
+        if number_of_departed_tasks > 5000:
+            a1 = accuracy_check(sum_of_time_spent_in_the_system, sum_of_time_spent_in_the_system_power_of_2, n_task)
+            a2 = accuracy_check(sum_of_time_spent_in_the_system_class1,
+                                sum_of_time_spent_in_the_system_power_of_2_class1, n_task1)
+            a3 = accuracy_check(sum_of_time_spent_in_the_system_class2,
+                                sum_of_time_spent_in_the_system_power_of_2_class2, n_task2)
+            a4 = accuracy_check(sum_of_time_spent_in_the_q, sum_of_time_spent_in_the_q_power_of_2, n_task_q)
+            a5 = accuracy_check(sum_of_time_spent_in_the_q_class1, sum_of_time_spent_in_the_q_power_of_2_class1,
+                                n_task1_q)
+            a6 = accuracy_check(sum_of_time_spent_in_the_q_class2, sum_of_time_spent_in_the_q_power_of_2_class2,
+                                n_task2_q)
+            a7 = accuracy_check(sum_of_the_length_of_the_sch_q, sum_of_the_length_of_the_sch_q_power_of_2, time)
+            if a1 == True or a2 == True or a3 == True or a4 == True or a5 == True or a6 == True or a7 == True:
                 return
+            for i in range(len(sum_of_the_length_of_the_server_qs)):
+                a = accuracy_check(sum_of_the_length_of_the_server_qs[i],
+                                   sum_of_the_length_of_the_server_qs_power_of_2[i], time)
+                if a == True:
+                    return
 def accuracy_check(sum_of_xi,sum_of_xi2,n):
     if n == 0 or n == 1:
         return False
@@ -326,7 +352,9 @@ if __name__ == '__main__':
     n_task2_q = 0
 
     #3
-
+    number_of_deadlined_tasks = 0
+    number_of_deadlined_tasks_class1 = 0
+    number_of_deadlined_tasks_class2 = 0
     #4
     sum_of_the_length_of_the_sch_q = 0  # sigma xi
     sum_of_the_length_of_the_sch_q_power_of_2 = 0  # sigma xi^2 for computing variance
@@ -337,3 +365,22 @@ if __name__ == '__main__':
 
 
     simulate(server_num, arrival_l, deadline_m, scheduler_rate, cores)
+    if(n_task != 0 and n_task1 != 0 and n_task2 != 0 and n_task_q != 0 and n_task1_q != 0 and n_task2_q != 0):
+        print("average time in the system = ", sum_of_time_spent_in_the_system / n_task)
+        print("average time in the system class 1 = ", sum_of_time_spent_in_the_system_class1 / n_task1)
+        print("average time in the system class 2 = ", sum_of_time_spent_in_the_system_class2 / n_task2)
+
+        print("average waiting time in q = ", sum_of_time_spent_in_the_q / n_task_q)
+        print("average waiting time in q class 1 = ", sum_of_time_spent_in_the_q_class1 / n_task1_q)
+        print("average waiting time in q class 2 = ", sum_of_time_spent_in_the_q_class2 / n_task2_q)
+
+        print("average deadlines arrived = ", number_of_deadlined_tasks / n_task)
+        print("average deadlines arrived class1 =  ", number_of_deadlined_tasks_class1 / n_task1)
+        print("average deadlines arrived class2 =  ", number_of_deadlined_tasks_class2 / n_task2)
+
+
+    print("average length of schedule q: ", (sum_of_the_length_of_the_sch_q)/time)
+    for i in range(len(sum_of_the_length_of_the_server_qs)):
+        print("average length of que of server ",i," = ", (sum_of_the_length_of_the_server_qs[i])/time)
+    print("number of tasks completed to reach the end : ",number_of_departed_tasks)
+
