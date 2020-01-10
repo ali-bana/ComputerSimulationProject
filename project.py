@@ -218,6 +218,7 @@ when departure event call this function. it frees the core and call start_task
     start_task(server_Q, cores, cores_lambda, server, fel, time)
 
 time = 0
+arrivals = 0
 def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
     """
     :param ser_num: total number of servers
@@ -226,6 +227,7 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
     :param sc_r: scheduler rate
     :param cores: 2D array of cores. Each row is the set of all cores of a server
     """
+    global arrivals
     global time
     global sum_of_the_length_of_the_sch_q,sum_of_the_length_of_the_sch_q_power_of_2,sum_of_the_length_of_the_server_qs,sum_of_the_length_of_the_server_qs_power_of_2
     global n_task_q, n_task1_q, n_task2_q, sum_of_time_spent_in_the_q, sum_of_time_spent_in_the_q_class1, sum_of_time_spent_in_the_q_class2, sum_of_time_spent_in_the_q_power_of_2, sum_of_time_spent_in_the_q_power_of_2_class1, sum_of_time_spent_in_the_q_power_of_2_class2
@@ -374,9 +376,9 @@ if __name__ == '__main__':
         print("average waiting time in q class 1 = ", sum_of_time_spent_in_the_q_class1 / n_task1_q)
         print("average waiting time in q class 2 = ", sum_of_time_spent_in_the_q_class2 / n_task2_q)
 
-        print("average deadlines arrived = ", number_of_deadlined_tasks / n_task)
-        print("average deadlines arrived class1 =  ", number_of_deadlined_tasks_class1 / n_task1)
-        print("average deadlines arrived class2 =  ", number_of_deadlined_tasks_class2 / n_task2)
+        print("average deadlines arrived = ", number_of_deadlined_tasks / arrivals)
+        print("average deadlines arrived class1 =  ", number_of_deadlined_tasks_class1 / (n_task1 + number_of_deadlined_tasks_class1))
+        print("average deadlines arrived class2 =  ", number_of_deadlined_tasks_class2 / (n_task2 + number_of_deadlined_tasks_class2))
 
 
     print("average length of schedule q: ", (sum_of_the_length_of_the_sch_q)/time)
