@@ -3,6 +3,9 @@ from RandomVariableGenerator import exponentialGenerator
 from functools import cmp_to_key
 import numpy as np
 
+
+
+
 class Event:
     def __init__(self, kind, time, description):
         self.time = time
@@ -171,9 +174,10 @@ cores, then starts a task if Q is not empty and there exists an empty core
 
             return
 
-def departure(dep, server_Q, cores, cores_lambda, time, fel):
+def departure(dep, server_Q, cores, cores_lambda, time, fel, arrivals):
     """
 when departure event call this function. it frees the core and call start_task
+    :param arrivals: number of arrivals to start sampling after warm up
     :param dep: the descreption of event. format is 'server core'
     :param server_Q: 2D Q of all servers
     :param cores: 2D cores of all servers
@@ -218,19 +222,18 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
     time = 0  # time of the system
     cores = [[-1 for j in range(len(cores_lambda[i]))] for i in range(len(cores_lambda))]
     # makes a 2D array for cores, tasks place in cores, -1 indicates empty state
-    fel.append(Event('END', 50000, ''))
+    # fel.append(Event('END', 50000, ''))
     fel.append(Event('arrival', next_task_time(time, arrival_l), ''))
     fel.append(Event('sc_s', exponentialGenerator(sc_r) + time, ''))  # the time scheduler works
     sum_of_the_length_of_the_sch_q += len(schdle_Q)
     sum_of_the_length_of_the_sch_q_power_of_2 += len(schdle_Q) ** 2
+    arrivals = 0
     for i in range(len(server_Q)):
         sum_of_the_length_of_the_server_qs[i] += len(server_Q[i])
         sum_of_the_length_of_the_server_qs_power_of_2[i] += len(server_Q[i]) ** 2
 
 
     while (True):
-        if time >= 5000:
-            return
         fel.sort(key=lambda x: x.time)
         e = fel.pop(0)  # pop the first event in the list
         time = e.time
@@ -247,6 +250,7 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
         if e.kind == 'arrival':
             # a new customer arrives
             task, next_arrival = task_generator(arrival_l, dead_m, time)
+            arrivals += 1
             schdle_Q.append(task)  # adding the arrived task to the scheduler Q
             fel.append(Event('arrival', next_arrival, ''))  # generating a future event for the next arrival
             schdle_Q.sort(key=cmp_to_key(task_compare))
@@ -259,7 +263,7 @@ def simulate(server_num, arrival_l, dead_m, sc_r, cores_lambda):
             pass
         elif e.kind == 'dep':
             # a task is done
-            departure(e.description, server_Q, cores, cores_lambda, time, fel)
+            departure(e.description, server_Q, cores, cores_lambda, time, fel, arrivals)
 
             pass
         elif e.kind == 'deadline':
