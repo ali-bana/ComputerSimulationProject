@@ -289,7 +289,7 @@ def accuracy_check(sum_of_xi,sum_of_xi2,n):
     variance = (sum_of_xi2 - (n * mean)) / (n - 1)
     variance = variance ** (0.5)
     accuracy = (variance * 1.96) / ((n ** 0.5)* mean)
-    if accuracy < 0.05:
+    if accuracy <= 0.05:
         return True
     else:return False
 
